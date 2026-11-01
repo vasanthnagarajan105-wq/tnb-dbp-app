@@ -1,0 +1,38 @@
+# Local development stack: PostgreSQL + backend.
+# Start:  docker compose up --build
+# Stop:   docker compose down        (add -v to also delete the database)
+
+services:
+  db:
+    image: postgres:17
+    container_name: tnb-db
+    environment:
+      POSTGRES_DB: tnbdbp
+      POSTGRES_USER: tnb
+      POSTGRES_PASSWORD: tnb_local_pw   # local only, never a real password
+    ports:
+      - "5432:5432"
+    volumes:
+      - tnb-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tnb -d tnbdbp"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    container_name: tnb-backend
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/tnbdbp
+      DB_USER: tnb
+      DB_PASSWORD: tnb_local_pw
+      SPRING_PROFILES_ACTIVE: dev
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  tnb-pgdata:
