@@ -38,7 +38,7 @@ To wipe the database and start fresh: `docker compose down -v`.
 
 | Setting | Value |
 |---|---|
-| Host / Port | localhost / 5432 |
+| Host / Port | localhost / 5433 |
 | Database | tnbdbp |
 | User / Password | tnb / tnb_local_pw (local only) |
 
