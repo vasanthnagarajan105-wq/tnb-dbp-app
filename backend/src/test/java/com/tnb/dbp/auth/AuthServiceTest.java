@@ -7,6 +7,7 @@ import com.tnb.dbp.customer.CustomerRepository;
 import com.tnb.dbp.otp.OtpChallenge;
 import com.tnb.dbp.otp.OtpChallengeRepository;
 import com.tnb.dbp.session.SessionRepository;
+import com.tnb.dbp.session.UserSession;
 import com.tnb.dbp.sms.SmsService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -16,6 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.Instant;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -88,6 +90,49 @@ class AuthServiceTest {
         assertEquals("ACCOUNT_LOCKED", ex.getCode());
         assertTrue(customer.isLocked());
         assertNotNull(customer.getLockedAt());
+    }
+
+    @Test
+    void successfulOtpVerificationResetsFailedAttempts() {
+        // Regression test for the TC-AUTH-06 defect
+        customer.setFailedAttempts(2);
+        OtpChallenge challenge = new OtpChallenge(customer, "LOGIN", encoder.encode("123456"),
+                Instant.now().plusSeconds(300));
+        when(challenges.findById(challenge.getId())).thenReturn(Optional.of(challenge));
+        when(sessions.save(any(UserSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.verifyOtp(challenge.getId(), "123456");
+
+        assertEquals(0, customer.getFailedAttempts());
+        assertTrue(challenge.isUsed());
+    }
+
+    @Test
+    void thirdResendIsAllowed() {
+        OtpChallenge challenge = new OtpChallenge(customer, "LOGIN", encoder.encode("123456"),
+                Instant.now().plusSeconds(300));
+        challenge.setResendCount(2);
+        when(challenges.findById(challenge.getId())).thenReturn(Optional.of(challenge));
+
+        service.resendOtp(challenge.getId());
+
+        assertEquals(3, challenge.getResendCount());
+        verify(sms).send(eq("9000000001"), contains("OTP"));
+    }
+
+    @Test
+    void fourthResendIsRefused() {
+        // Regression test for the TC-AUTH-08 defect (off-by-one)
+        OtpChallenge challenge = new OtpChallenge(customer, "LOGIN", encoder.encode("123456"),
+                Instant.now().plusSeconds(300));
+        challenge.setResendCount(3);
+        when(challenges.findById(challenge.getId())).thenReturn(Optional.of(challenge));
+
+        ApiException ex = assertThrows(ApiException.class, () -> service.resendOtp(challenge.getId()));
+
+        assertEquals("RESEND_LIMIT_REACHED", ex.getCode());
+        assertEquals(3, challenge.getResendCount());
+        verify(sms, never()).send(any(), any());
     }
 
     @Test

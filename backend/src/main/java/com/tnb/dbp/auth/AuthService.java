@@ -106,6 +106,7 @@ public class AuthService {
         }
 
         challenge.setUsed(true);
+        customer.setFailedAttempts(0);      // successful login resets the counter (TNB-3 AC4)
         customer.setUpdatedAt(Instant.now());
 
         Instant now = Instant.now();
@@ -128,7 +129,7 @@ public class AuthService {
         if (challenge.isUsed()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "OTP_ALREADY_USED", "This OTP has already been used. Please log in again.");
         }
-        if (challenge.getResendCount() > maxOtpResends) {
+        if (challenge.getResendCount() >= maxOtpResends) {   // max 3 resends (TNB-4 AC4)
             throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "RESEND_LIMIT_REACHED",
                     "Maximum OTP resends reached. Please log in again.");
         }
