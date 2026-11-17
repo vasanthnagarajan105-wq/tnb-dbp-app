@@ -90,6 +90,10 @@ public class Customer {
         return passwordHash;
     }
 
+    public void setPasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
+
     public int getFailedAttempts() {
         return failedAttempts;
     }

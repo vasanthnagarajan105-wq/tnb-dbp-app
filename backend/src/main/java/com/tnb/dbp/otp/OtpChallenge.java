@@ -39,6 +39,9 @@ public class OtpChallenge {
     @Column(nullable = false)
     private boolean used;
 
+    @Column(name = "verify_attempts", nullable = false)
+    private int verifyAttempts;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -97,5 +100,13 @@ public class OtpChallenge {
 
     public void setUsed(boolean used) {
         this.used = used;
+    }
+
+    public int getVerifyAttempts() {
+        return verifyAttempts;
+    }
+
+    public void setVerifyAttempts(int verifyAttempts) {
+        this.verifyAttempts = verifyAttempts;
     }
 }

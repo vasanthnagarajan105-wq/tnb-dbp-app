@@ -35,6 +35,7 @@ tnb:
     otp-validity-seconds: 300
     max-failed-attempts: 3
     max-otp-resends: 3
+    max-reset-otp-attempts: 3      # wrong OTPs before a password reset request is cancelled (TNB-5)
     session-validity-seconds: 300
 
 ---
