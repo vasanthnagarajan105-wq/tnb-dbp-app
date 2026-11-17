@@ -11,7 +11,7 @@ Technology decisions: [ADR-001](docs/adr/ADR-001-technology-stack.md).
 |---|---|---|
 | TNB-4 | Login with Customer ID + password + OTP | API ready |
 | TNB-3 | Lock login after 3 consecutive failed attempts | API ready (unlock flow in a later PR) |
-| TNB-5 | Reset forgotten password | Not started |
+| TNB-5 | Reset forgotten password with OTP (also unlocks) | API ready |
 | TNB-6 | Automatic logout after inactivity | Not started |
 
 ## Run it locally
@@ -66,6 +66,20 @@ Password for all: `Test@1234`
 
 Other endpoint: `POST /api/v1/auth/resend-otp` with `{"challengeId":"..."}`.
 
+## Password reset flow (TNB-5)
+
+1. `POST /api/v1/auth/password-reset/request` with `{"customerId":"TNB100003","mobile":"9000000003"}`
+   returns a `challengeId` and sends an OTP by simulated SMS.
+2. Read the OTP from `GET /api/v1/test-support/sms?mobile=9000000003`.
+3. `POST /api/v1/auth/password-reset/confirm` with
+   `{"challengeId":"<from step 1>","otp":"<6 digits>","newPassword":"NewPass@123"}`.
+   The password changes, the account is unlocked, failed attempts reset to 0,
+   all sessions end, and a confirmation SMS is sent.
+
+Password policy: 8-20 characters, no spaces, at least one uppercase, one lowercase,
+one digit and one special character, different from the current password.
+3 wrong OTPs cancel the reset request (they do not count toward the login lock).
+
 ### Error format
 
 Every error returns the same shape:
@@ -85,7 +99,11 @@ Every error returns the same shape:
 | VALIDATION_ERROR | 400 | Missing field, OTP not 6 digits |
 | MALFORMED_REQUEST | 400 | Body missing or not valid JSON |
 | OTP_EXPIRED | 400 | OTP older than 5 minutes |
-| OTP_ALREADY_USED | 400 | OTP already used to log in |
+| OTP_ALREADY_USED | 400 | OTP already used |
+| INVALID_DETAILS | 400 | Password reset: Customer ID and mobile do not match |
+| WEAK_PASSWORD | 400 | New password breaks the password policy |
+| SAME_AS_OLD_PASSWORD | 400 | New password equals the current one |
+| OTP_ATTEMPTS_EXCEEDED | 400 | 3 wrong OTPs on one password reset request |
 | INVALID_CREDENTIALS | 401 | Unknown Customer ID or wrong password |
 | INVALID_OTP | 401 | Wrong OTP |
 | UNAUTHORIZED / SESSION_EXPIRED | 401 | Missing, invalid or expired token |
@@ -100,6 +118,7 @@ Every error returns the same shape:
 | `tnb.auth.otp-validity-seconds` | 300 | OTP lifetime |
 | `tnb.auth.max-failed-attempts` | 3 | Failures before lock |
 | `tnb.auth.max-otp-resends` | 3 | OTP resends allowed per login |
+| `tnb.auth.max-reset-otp-attempts` | 3 | Wrong OTPs before a password reset request is cancelled |
 | `tnb.auth.session-validity-seconds` | 300 | Access token lifetime |
 
 Database connection: `DB_URL`, `DB_USER`, `DB_PASSWORD` environment variables.

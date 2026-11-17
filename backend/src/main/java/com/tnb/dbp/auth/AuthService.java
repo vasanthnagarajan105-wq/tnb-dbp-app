@@ -158,7 +158,9 @@ public class AuthService {
     }
 
     private OtpChallenge findChallenge(UUID challengeId) {
+        // Only LOGIN challenges here: a password-reset OTP must never log anyone in (TNB-5).
         return challenges.findById(challengeId)
+                .filter(c -> PURPOSE_LOGIN.equals(c.getPurpose()))
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "CHALLENGE_NOT_FOUND",
                         "OTP request not found. Please log in again."));
     }
